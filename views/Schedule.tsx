@@ -518,7 +518,7 @@ const Schedule: React.FC<ScheduleProps> = ({
                     onClick={() => confirmDelete('single')}
                     className="w-full py-3 bg-white dark:bg-gray-800 border-2 border-red-200 text-red-600 rounded-xl font-bold hover:bg-red-50 transition-colors"
                   >
-                    Excluir apenas este evento
+                    Excluir apenas este Dia
                   </button>
                   <button
                     onClick={() => confirmDelete('series')}
