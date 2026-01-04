@@ -18,11 +18,13 @@ export interface Appointment {
   clientName: string;
   service: string;
   price: number;
-  dateStr: string; // "Hoje" or "Ontem"
+  dateStr: string; // ISO format
   avatar?: string;
   initials?: string;
   status?: 'confirmed' | 'pending';
   paymentMethod?: 'Dinheiro' | 'PIX' | 'Mensal';
+  series_id?: string;
+  is_recurring?: boolean;
 }
 
 export interface DailyStat {

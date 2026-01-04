@@ -143,43 +143,110 @@ export default function App() {
   };
 
   const handleAddAppointment = async (app: Appointment) => {
-    const { data, error } = await supabase
-      .from('appointments')
-      .insert([app])
-      .select()
-      .single();
+    if (app.is_recurring) {
+      const series_id = crypto.randomUUID();
+      const appointmentsToCreate: Appointment[] = [];
+      const startDate = new Date(app.dateStr + 'T12:00:00');
 
-    if (error) {
-      alert('Erro ao salvar agendamento: ' + error.message);
-      return;
+      for (let i = 0; i < 52; i++) {
+        const nextDate = new Date(startDate);
+        nextDate.setDate(startDate.getDate() + i * 7);
+        appointmentsToCreate.push({
+          ...app,
+          series_id,
+          dateStr: nextDate.toISOString().split('T')[0]
+        });
+      }
+
+      const { data, error } = await supabase
+        .from('appointments')
+        .insert(appointmentsToCreate)
+        .select();
+
+      if (error) {
+        alert('Erro ao salvar agendamentos recorrentes: ' + error.message);
+        return;
+      }
+      setAppointments(prev => [...prev, ...(data as Appointment[])]);
+    } else {
+      const { data, error } = await supabase
+        .from('appointments')
+        .insert([app])
+        .select()
+        .single();
+
+      if (error) {
+        alert('Erro ao salvar agendamento: ' + error.message);
+        return;
+      }
+      setAppointments(prev => [...prev, data as Appointment]);
     }
-    setAppointments(prev => [...prev, data as Appointment]);
   };
 
-  const handleUpdateAppointment = async (app: Appointment) => {
-    const { error } = await supabase
-      .from('appointments')
-      .update(app)
-      .eq('id', app.id);
+  const handleUpdateAppointment = async (app: Appointment, mode: 'single' | 'future' = 'single') => {
+    if (mode === 'future' && app.series_id) {
+      const { data, error } = await supabase
+        .from('appointments')
+        .update({
+          clientName: app.clientName,
+          service: app.service,
+          price: app.price,
+          time: app.time,
+          status: app.status,
+          paymentMethod: app.paymentMethod,
+          avatar: app.avatar,
+          initials: app.initials
+        })
+        .eq('series_id', app.series_id)
+        .gte('dateStr', app.dateStr);
 
-    if (error) {
-      alert('Erro ao atualizar agendamento: ' + error.message);
-      return;
+      if (error) {
+        alert('Erro ao atualizar série: ' + error.message);
+        return;
+      }
+
+      // We need to refresh data since many records changed
+      fetchData();
+    } else {
+      const { error } = await supabase
+        .from('appointments')
+        .update(app)
+        .eq('id', app.id);
+
+      if (error) {
+        alert('Erro ao atualizar agendamento: ' + error.message);
+        return;
+      }
+      setAppointments(prev => prev.map(a => a.id === app.id ? app : a));
     }
-    setAppointments(prev => prev.map(a => a.id === app.id ? app : a));
   };
 
-  const handleDeleteAppointment = async (id: string) => {
-    const { error } = await supabase
-      .from('appointments')
-      .delete()
-      .eq('id', id);
+  const handleDeleteAppointment = async (id: string, mode: 'single' | 'series' = 'single') => {
+    const appToDelete = appointments.find(a => a.id === id);
 
-    if (error) {
-      alert('Erro ao excluir agendamento: ' + error.message);
-      return;
+    if (mode === 'series' && appToDelete?.series_id) {
+      const { error } = await supabase
+        .from('appointments')
+        .delete()
+        .eq('series_id', appToDelete.series_id);
+
+      if (error) {
+        alert('Erro ao excluir série: ' + error.message);
+        return;
+      }
+      setAppointments(prev => prev.filter(a => a.series_id !== appToDelete.series_id));
+    } else {
+      const { error } = await supabase
+        .from('appointments')
+        .delete()
+        .eq('id', id);
+
+      if (error) {
+        alert('Erro ao excluir agendamento: ' + error.message);
+        return;
+      }
+      setAppointments(prev => prev.filter(a => a.id !== id));
     }
-    setAppointments(prev => prev.filter(a => a.id !== id));
   };
 
   const renderView = () => {

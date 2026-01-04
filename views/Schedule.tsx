@@ -8,7 +8,8 @@ interface ScheduleProps {
   appointments: Appointment[];
   clients: Client[];
   onAddAppointment: (app: Appointment) => void;
-  onUpdateAppointment: (app: Appointment) => void;
+  onUpdateAppointment: (app: Appointment, mode?: 'single' | 'future') => void;
+  onDeleteAppointment: (id: string, mode?: 'single' | 'series') => void;
 }
 
 const SERVICES = ['Pé', 'Pé e Mão', 'Mão', 'Sobrancelha', 'Depilação'];
@@ -31,8 +32,10 @@ const Schedule: React.FC<ScheduleProps> = ({
     price: '',
     date: new Date().toLocaleDateString('en-CA'), // YYYY-MM-DD local
     paymentMethod: 'Dinheiro' as 'Dinheiro' | 'PIX' | 'Mensal',
-    status: 'pending' as 'confirmed' | 'pending'
+    status: 'pending' as 'confirmed' | 'pending',
+    is_recurring: false
   });
+  const [showRecurrenceModal, setShowRecurrenceModal] = useState<'edit' | 'delete' | null>(null);
   const [clientSearch, setClientSearch] = useState('');
   const [showClientSuggestions, setShowClientSuggestions] = useState(false);
 
@@ -73,7 +76,8 @@ const Schedule: React.FC<ScheduleProps> = ({
         price: app.price.toString(),
         date: app.dateStr,
         paymentMethod: app.paymentMethod || 'Dinheiro',
-        status: app.status || 'pending'
+        status: app.status || 'pending',
+        is_recurring: app.is_recurring || false
       });
       setClientSearch(app.clientName);
     } else {
@@ -85,7 +89,8 @@ const Schedule: React.FC<ScheduleProps> = ({
         price: '',
         date: selectedDate.toLocaleDateString('en-CA'),
         paymentMethod: 'Dinheiro',
-        status: 'pending'
+        status: 'pending',
+        is_recurring: false
       });
       setClientSearch('');
     }
@@ -108,17 +113,22 @@ const Schedule: React.FC<ScheduleProps> = ({
     const selectedClient = clients.find(c => c.name === clientSearch);
 
     if (editingAppointment) {
-      onUpdateAppointment({
-        ...editingAppointment,
-        clientName: clientSearch,
-        service: formData.service,
-        time: formData.time,
-        price: Number(formData.price),
-        dateStr: formData.date,
-        avatar: selectedClient?.avatar || '',
-        paymentMethod: formData.paymentMethod,
-        status: formData.status,
-      });
+      if (editingAppointment.series_id) {
+        setShowRecurrenceModal('edit');
+      } else {
+        onUpdateAppointment({
+          ...editingAppointment,
+          clientName: clientSearch,
+          service: formData.service,
+          time: formData.time,
+          price: Number(formData.price),
+          dateStr: formData.date,
+          avatar: selectedClient?.avatar || '',
+          paymentMethod: formData.paymentMethod,
+          status: formData.status,
+        });
+        setShowModal(false);
+      }
     } else {
       const newApp: Appointment = {
         clientName: clientSearch,
@@ -130,18 +140,49 @@ const Schedule: React.FC<ScheduleProps> = ({
         initials: clientSearch.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2),
         status: formData.status,
         paymentMethod: formData.paymentMethod,
+        is_recurring: formData.is_recurring
       };
       onAddAppointment(newApp);
-    }
-    setShowModal(false);
-  };
-  const handleDelete = () => {
-    if (!editingAppointment?.id) return;
-
-    if (confirm(`Deseja realmente excluir o agendamento de ${editingAppointment.clientName}?`)) {
-      onDeleteAppointment(editingAppointment.id);
       setShowModal(false);
     }
+  };
+
+  const confirmUpdate = (mode: 'single' | 'future') => {
+    if (!editingAppointment) return;
+    const selectedClient = clients.find(c => c.name === clientSearch);
+
+    onUpdateAppointment({
+      ...editingAppointment,
+      clientName: clientSearch,
+      service: formData.service,
+      time: formData.time,
+      price: Number(formData.price),
+      dateStr: formData.date,
+      avatar: selectedClient?.avatar || '',
+      paymentMethod: formData.paymentMethod,
+      status: formData.status,
+    }, mode);
+    setShowRecurrenceModal(null);
+    setShowModal(false);
+  };
+
+  const handleDelete = () => {
+    if (!editingAppointment?.id) return;
+    if (editingAppointment.series_id) {
+      setShowRecurrenceModal('delete');
+    } else {
+      if (confirm(`Deseja realmente excluir o agendamento de ${editingAppointment.clientName}?`)) {
+        onDeleteAppointment(editingAppointment.id);
+        setShowModal(false);
+      }
+    }
+  };
+
+  const confirmDelete = (mode: 'single' | 'series') => {
+    if (!editingAppointment?.id) return;
+    onDeleteAppointment(editingAppointment.id, mode);
+    setShowRecurrenceModal(null);
+    setShowModal(false);
   };
 
   const moveWeek = (dir: number) => {
@@ -228,7 +269,12 @@ const Schedule: React.FC<ScheduleProps> = ({
                         </div>
                       )}
                       <div className="min-w-0">
-                        <h4 className="font-bold text-text-main dark:text-white text-base truncate">{app.clientName}</h4>
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-bold text-text-main dark:text-white text-base truncate">{app.clientName}</h4>
+                          {app.series_id && (
+                            <span className="material-symbols-outlined text-[16px] text-pink-400" title="Recorrente">sync</span>
+                          )}
+                        </div>
                         <p className="text-xs font-medium text-primary mt-0.5 flex items-center gap-1">
                           <span className="material-symbols-outlined text-[14px]">spa</span>
                           {app.service}
@@ -395,6 +441,21 @@ const Schedule: React.FC<ScheduleProps> = ({
                     <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${formData.status === 'confirmed' ? 'translate-x-5' : 'translate-x-0'}`} />
                   </button>
                 </div>
+
+                {!editingAppointment && (
+                  <div className="flex items-center justify-between p-4 bg-pink-50 dark:bg-pink-900/10 rounded-xl border border-pink-100 dark:border-pink-900/30">
+                    <div className="flex items-center gap-2">
+                      <span className="material-symbols-outlined text-primary">sync</span>
+                      <span className="text-sm font-bold text-text-main dark:text-white">Repetir semanalmente?</span>
+                    </div>
+                    <button
+                      onClick={() => setFormData({ ...formData, is_recurring: !formData.is_recurring })}
+                      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${formData.is_recurring ? 'bg-primary' : 'bg-gray-200 dark:bg-gray-700'}`}
+                    >
+                      <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${formData.is_recurring ? 'translate-x-5' : 'translate-x-0'}`} />
+                    </button>
+                  </div>
+                )}
               </div>
 
               <div className="bg-gray-50 dark:bg-gray-800/50 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6 pb-8 sm:pb-3">
@@ -422,6 +483,57 @@ const Schedule: React.FC<ScheduleProps> = ({
                   Cancelar
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Recurrence Choice Modal */}
+      {showRecurrenceModal && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowRecurrenceModal(null)}></div>
+          <div className="relative w-full max-w-sm bg-white dark:bg-card-dark rounded-2xl p-6 shadow-2xl animate-in zoom-in-95 duration-200">
+            <h3 className="text-lg font-bold dark:text-white mb-2">Agendamento Recorrente</h3>
+            <p className="text-sm text-text-muted mb-6">
+              Este agendamento faz parte de uma série. O que você deseja fazer?
+            </p>
+            <div className="space-y-3">
+              {showRecurrenceModal === 'edit' ? (
+                <>
+                  <button
+                    onClick={() => confirmUpdate('single')}
+                    className="w-full py-3 bg-white dark:bg-gray-800 border-2 border-primary/20 text-primary rounded-xl font-bold hover:bg-primary/5 transition-colors"
+                  >
+                    Alterar apenas este evento
+                  </button>
+                  <button
+                    onClick={() => confirmUpdate('future')}
+                    className="w-full py-3 bg-primary text-white rounded-xl font-bold shadow-soft hover:bg-primary-dark transition-colors"
+                  >
+                    Alterar este e todos os futuros
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={() => confirmDelete('single')}
+                    className="w-full py-3 bg-white dark:bg-gray-800 border-2 border-red-200 text-red-600 rounded-xl font-bold hover:bg-red-50 transition-colors"
+                  >
+                    Excluir apenas este evento
+                  </button>
+                  <button
+                    onClick={() => confirmDelete('series')}
+                    className="w-full py-3 bg-red-600 text-white rounded-xl font-bold shadow-soft hover:bg-red-700 transition-colors"
+                  >
+                    Excluir toda a série
+                  </button>
+                </>
+              )}
+              <button
+                onClick={() => setShowRecurrenceModal(null)}
+                className="w-full py-3 text-text-muted font-semibold hover:text-text-main"
+              >
+                Cancelar
+              </button>
             </div>
           </div>
         </div>
