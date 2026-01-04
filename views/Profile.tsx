@@ -6,18 +6,18 @@ import { User } from '@supabase/supabase-js';
 
 interface ProfileProps {
     onBack: () => void;
+    darkMode: boolean;
+    onToggleDarkMode: () => void;
 }
 
-const Profile: React.FC<ProfileProps> = ({ onBack }) => {
+const Profile: React.FC<ProfileProps> = ({ onBack, darkMode, onToggleDarkMode }) => {
     const [user, setUser] = useState<User | null>(null);
     const [activeModal, setActiveModal] = useState<'personal' | 'settings' | 'notifications' | null>(null);
     const [loading, setLoading] = useState(false);
     const [uploading, setUploading] = useState(false);
 
-    // Form States
     const [displayName, setDisplayName] = useState('');
     const [phone, setPhone] = useState('');
-    const [darkMode, setDarkMode] = useState(false);
     const [notifNewApp, setNotifNewApp] = useState(true);
     const [notifReminders, setNotifReminders] = useState(true);
 
@@ -259,7 +259,7 @@ const Profile: React.FC<ProfileProps> = ({ onBack }) => {
                                     <p className="font-bold dark:text-white">Modo Escuro</p>
                                     <p className="text-xs text-slate-500">Alternar tema do aplicativo</p>
                                 </div>
-                                <Toggle enabled={darkMode} setEnabled={setDarkMode} />
+                                <Toggle enabled={darkMode} setEnabled={onToggleDarkMode} />
                             </div>
                             <div className="flex items-center justify-between">
                                 <div>

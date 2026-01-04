@@ -8,9 +8,10 @@ interface ClientsProps {
   clients: Client[];
   onAddClient: (client: Client) => void;
   onUpdateClient: (client: Client) => void;
+  onBulkAddClients: (clients: Client[]) => void;
 }
 
-const Clients: React.FC<ClientsProps> = ({ onBack, clients, onAddClient, onUpdateClient }) => {
+const Clients: React.FC<ClientsProps> = ({ onBack, clients, onAddClient, onUpdateClient, onBulkAddClients }) => {
   const [showModal, setShowModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [editingClient, setEditingClient] = useState<Client | null>(null);
@@ -83,8 +84,47 @@ const Clients: React.FC<ClientsProps> = ({ onBack, clients, onAddClient, onUpdat
     setShowModal(false);
   };
 
-  const handleImport = () => {
-    alert('Importando contatos: 15 novos clientes encontrados e adicionados!');
+  const handleImport = async () => {
+    // Check if the Contact Picker API is supported
+    const supported = 'contacts' in navigator && 'ContactsManager' in window;
+
+    if (!supported) {
+      alert('Seu navegador não suporta a importação automática de contatos. Tente usar o Chrome no Android ou Safari no iOS.');
+      return;
+    }
+
+    try {
+      const props = ['name', 'tel'];
+      const opts = { multiple: true };
+
+      // @ts-ignore - navigator.contacts is not in standard ts types yet
+      const contacts = await navigator.contacts.select(props, opts);
+
+      if (contacts && contacts.length > 0) {
+        const newClients: Client[] = contacts.map((contact: any) => {
+          const name = contact.name[0] || 'Sem Nome';
+          const phone = contact.tel[0] || '';
+          const initials = name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2);
+
+          return {
+            name,
+            phone,
+            avatar: '',
+            vip: false,
+            visits: 0,
+            lastVisit: 'Novo',
+            initials: initials
+          };
+        });
+
+        onBulkAddClients(newClients);
+        alert(`${newClients.length} contatos importados com sucesso!`);
+      }
+    } catch (err: any) {
+      if (err.name !== 'AbortError') {
+        alert('Erro ao importar contatos: ' + err.message);
+      }
+    }
   };
 
   return (

@@ -20,6 +20,21 @@ export default function App() {
   const [clients, setClients] = useState<Client[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [darkMode, setDarkMode] = useState(() => {
+    return localStorage.getItem('theme') === 'dark' ||
+      (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches);
+  });
+
+  // Apply dark mode
+  useEffect(() => {
+    if (darkMode) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+    }
+  }, [darkMode]);
 
   // Persist view state
   useEffect(() => {
@@ -114,6 +129,19 @@ export default function App() {
     setClients(prev => prev.map(c => c.id === client.id ? client : c));
   };
 
+  const handleBulkAddClients = async (newClients: Client[]) => {
+    const { data, error } = await supabase
+      .from('clients')
+      .insert(newClients)
+      .select();
+
+    if (error) {
+      alert('Erro ao salvar contatos: ' + error.message);
+      return;
+    }
+    setClients(prev => [...prev, ...(data as Client[])]);
+  };
+
   const handleAddAppointment = async (app: Appointment) => {
     const { data, error } = await supabase
       .from('appointments')
@@ -184,6 +212,7 @@ export default function App() {
             clients={clients}
             onAddClient={handleAddClient}
             onUpdateClient={handleUpdateClient}
+            onBulkAddClients={handleBulkAddClients}
           />
         );
       case 'financial':
@@ -205,7 +234,11 @@ export default function App() {
           />
         );
       case 'profile':
-        return <Profile onBack={() => setCurrentView('dashboard')} />;
+        return <Profile
+          onBack={() => setCurrentView('dashboard')}
+          darkMode={darkMode}
+          onToggleDarkMode={() => setDarkMode(!darkMode)}
+        />;
       default:
         return (
           <Dashboard

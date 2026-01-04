@@ -49,8 +49,46 @@ const Financial: React.FC<FinancialProps> = ({ onBack, appointments }) => {
       ? `Resumo de ${monthName.charAt(0).toUpperCase() + monthName.slice(1)}`
       : `Resumo de ${yearName}`;
 
-  // Basic empty chart data if no movement
-  const currentData = [{ name: '', val: 0 }];
+  // Calculate chart data dynamically
+  const getChartData = () => {
+    if (filter === 'daily') {
+      // Return points for different parts of the day or just the hours with appointments
+      const dayApps = appointments.filter(app => app.dateStr === selectedDate);
+      const hours = ['08:00', '10:00', '12:00', '14:00', '16:00', '18:00', '20:00'];
+      return hours.map(h => {
+        const total = dayApps
+          .filter(app => app.time.split(':')[0] === h.split(':')[0])
+          .reduce((acc, curr) => acc + curr.price, 0);
+        return { name: h, val: total };
+      });
+    } else if (filter === 'monthly') {
+      // Return points for each day of the month
+      const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+      const data = [];
+      for (let i = 1; i <= daysInMonth; i++) {
+        const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
+        const total = appointments
+          .filter(app => app.dateStr === dateStr)
+          .reduce((acc, curr) => acc + curr.price, 0);
+        data.push({ name: `${i}`, val: total });
+      }
+      return data;
+    } else {
+      // yearly: Return points for each month
+      const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+      return months.map((m, i) => {
+        const total = appointments
+          .filter(app => {
+            const d = new Date(app.dateStr + 'T12:00:00');
+            return d.getMonth() === i && d.getFullYear() === now.getFullYear();
+          })
+          .reduce((acc, curr) => acc + curr.price, 0);
+        return { name: m, val: total };
+      });
+    }
+  };
+
+  const currentData = getChartData();
 
   return (
     <Layout className="px-4">
@@ -128,7 +166,15 @@ const Financial: React.FC<FinancialProps> = ({ onBack, appointments }) => {
                   <stop offset="95%" stopColor="#EC4899" stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <Tooltip />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: '#fff',
+                  borderRadius: '12px',
+                  border: 'none',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+                }}
+                labelStyle={{ fontWeight: 'bold', color: '#334155' }}
+              />
               <Area
                 type="monotone"
                 dataKey="val"
@@ -136,6 +182,7 @@ const Financial: React.FC<FinancialProps> = ({ onBack, appointments }) => {
                 strokeWidth={3}
                 fillOpacity={1}
                 fill="url(#colorVal)"
+                animationDuration={1000}
               />
             </AreaChart>
           </ResponsiveContainer>
