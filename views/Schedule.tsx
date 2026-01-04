@@ -18,7 +18,8 @@ const Schedule: React.FC<ScheduleProps> = ({
   appointments,
   clients,
   onAddAppointment,
-  onUpdateAppointment
+  onUpdateAppointment,
+  onDeleteAppointment
 }) => {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showModal, setShowModal] = useState(false);
@@ -133,6 +134,14 @@ const Schedule: React.FC<ScheduleProps> = ({
       onAddAppointment(newApp);
     }
     setShowModal(false);
+  };
+  const handleDelete = () => {
+    if (!editingAppointment?.id) return;
+
+    if (confirm(`Deseja realmente excluir o agendamento de ${editingAppointment.clientName}?`)) {
+      onDeleteAppointment(editingAppointment.id);
+      setShowModal(false);
+    }
   };
 
   const moveWeek = (dir: number) => {
@@ -396,6 +405,15 @@ const Schedule: React.FC<ScheduleProps> = ({
                 >
                   Salvar
                 </button>
+                {editingAppointment && (
+                  <button
+                    type="button"
+                    onClick={handleDelete}
+                    className="mt-3 sm:mt-0 sm:ml-3 inline-flex w-full justify-center rounded-xl bg-red-50 dark:bg-red-900/20 px-3 py-3 text-sm font-bold text-red-600 dark:text-red-400 shadow-sm ring-1 ring-inset ring-red-200 dark:ring-red-900/30 hover:bg-red-100 sm:w-auto min-w-[100px]"
+                  >
+                    Excluir
+                  </button>
+                )}
                 <button
                   type="button"
                   className="mt-3 inline-flex w-full justify-center rounded-xl bg-white dark:bg-gray-700 px-3 py-3 text-sm font-semibold text-gray-900 dark:text-white shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-600 hover:bg-gray-50 sm:mt-0 sm:w-auto min-w-[100px]"

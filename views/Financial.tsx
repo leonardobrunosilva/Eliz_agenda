@@ -4,19 +4,6 @@ import Header from '../components/Header';
 import Layout from '../components/Layout';
 import { Appointment } from '../types';
 
-const chartData = {
-  daily: [
-    { name: '08:00', val: 50 }, { name: '10:00', val: 120 }, { name: '12:00', val: 80 },
-    { name: '14:00', val: 250 }, { name: '16:00', val: 180 }, { name: '18:00', val: 300 }
-  ],
-  monthly: [
-    { name: 'Sem 1', val: 850 }, { name: 'Sem 2', val: 1100 }, { name: 'Sem 3', val: 950 }, { name: 'Sem 4', val: 1350 }
-  ],
-  yearly: [
-    { name: 'Jan', val: 3200 }, { name: 'Fev', val: 4100 }, { name: 'Mar', val: 3800 }, { name: 'Abr', val: 4500 }
-  ]
-};
-
 interface FinancialProps {
   onBack: () => void;
   appointments: Appointment[];
@@ -24,18 +11,64 @@ interface FinancialProps {
 
 const Financial: React.FC<FinancialProps> = ({ onBack, appointments }) => {
   const [filter, setFilter] = useState<'daily' | 'monthly' | 'yearly'>('monthly');
+  const [selectedDate, setSelectedDate] = useState(new Date().toLocaleDateString('en-CA'));
 
-  const todayISO = new Date().toLocaleDateString('en-CA');
-  const todayAppointments = appointments.filter(app => app.dateStr === todayISO);
-  const dailyTotal = todayAppointments.reduce((acc, curr) => acc + curr.price, 0);
+  const now = new Date(selectedDate + 'T12:00:00');
+  const monthName = now.toLocaleDateString('pt-BR', { month: 'long' });
+  const yearName = now.getFullYear();
 
-  const currentData = chartData[filter];
-  const total = filter === 'daily' ? `R$ ${dailyTotal},00` : filter === 'monthly' ? 'R$ 4.250,00' : 'R$ 15.600,00';
-  const label = filter === 'daily' ? 'Resumo de Hoje' : filter === 'monthly' ? 'Resumo de Outubro' : 'Resumo de 2023';
+  // Dynamic calculations
+  const dailyTotal = appointments
+    .filter(app => app.dateStr === selectedDate)
+    .reduce((acc, curr) => acc + curr.price, 0);
+
+  const monthlyTotal = appointments
+    .filter(app => {
+      const d = new Date(app.dateStr + 'T12:00:00');
+      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    })
+    .reduce((acc, curr) => acc + curr.price, 0);
+
+  const yearlyTotal = appointments
+    .filter(app => {
+      const d = new Date(app.dateStr + 'T12:00:00');
+      return d.getFullYear() === now.getFullYear();
+    })
+    .reduce((acc, curr) => acc + curr.price, 0);
+
+  // Labels and Values
+  const total = filter === 'daily'
+    ? `R$ ${dailyTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+    : filter === 'monthly'
+      ? `R$ ${monthlyTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+      : `R$ ${yearlyTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+
+  const label = filter === 'daily'
+    ? `Resumo de ${now.toLocaleDateString('pt-BR')}`
+    : filter === 'monthly'
+      ? `Resumo de ${monthName.charAt(0).toUpperCase() + monthName.slice(1)}`
+      : `Resumo de ${yearName}`;
+
+  // Basic empty chart data if no movement
+  const currentData = [{ name: '', val: 0 }];
 
   return (
     <Layout className="px-4">
       <Header title="Finanças" showBack onBack={onBack} />
+
+      {/* Date Selector */}
+      <div className="mt-4 flex items-center gap-3 bg-white dark:bg-card-dark p-3 rounded-xl border border-primary/10 shadow-sm">
+        <span className="material-symbols-outlined text-primary text-[20px]">calendar_today</span>
+        <div className="flex-1">
+          <p className="text-[10px] font-bold text-text-muted uppercase mb-0.5">Selecione uma data</p>
+          <input
+            type="date"
+            value={selectedDate}
+            onChange={(e) => setSelectedDate(e.target.value)}
+            className="w-full bg-transparent border-0 p-0 text-sm font-bold text-text-main dark:text-white focus:ring-0"
+          />
+        </div>
+      </div>
 
       {/* Time Filter */}
       <div className="bg-primary/10 p-1 rounded-xl flex items-center justify-between mt-4">
@@ -75,8 +108,8 @@ const Financial: React.FC<FinancialProps> = ({ onBack, appointments }) => {
             <h3 className="text-4xl font-bold tracking-tight">{total}</h3>
           </div>
           <div className="flex items-center gap-1 mt-2 bg-white/20 w-fit px-2 py-1 rounded-md">
-            <span className="material-symbols-outlined text-sm font-bold">trending_up</span>
-            <p className="text-xs font-bold">+12% vs período anterior</p>
+            <span className="material-symbols-outlined text-sm font-bold">analytics</span>
+            <p className="text-xs font-bold">Relatório em tempo real</p>
           </div>
         </div>
       </div>

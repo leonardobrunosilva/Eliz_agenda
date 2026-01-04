@@ -13,16 +13,30 @@ import Profile from './views/Profile';
 
 export default function App() {
   const [session, setSession] = useState<Session | null>(null);
-  const [currentView, setCurrentView] = useState<ViewState>('login');
+  const [currentView, setCurrentView] = useState<ViewState>(() => {
+    const savedView = localStorage.getItem('currentView');
+    return (savedView as ViewState) || 'login';
+  });
   const [clients, setClients] = useState<Client[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Persist view state
+  useEffect(() => {
+    if (currentView !== 'login') {
+      localStorage.setItem('currentView', currentView);
+    }
+  }, [currentView]);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       if (session) {
-        setCurrentView('dashboard');
+        // If we are on login view but have a session, move to dashboard
+        // otherwise stay on the persisted view
+        if (currentView === 'login') {
+          setCurrentView('dashboard');
+        }
         fetchData();
       } else {
         setLoading(false);
@@ -34,10 +48,13 @@ export default function App() {
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       if (session) {
-        setCurrentView('dashboard');
+        if (currentView === 'login') {
+          setCurrentView('dashboard');
+        }
         fetchData();
       } else {
         setCurrentView('login');
+        localStorage.removeItem('currentView');
         setClients([]);
         setAppointments([]);
       }
@@ -124,6 +141,19 @@ export default function App() {
     setAppointments(prev => prev.map(a => a.id === app.id ? app : a));
   };
 
+  const handleDeleteAppointment = async (id: string) => {
+    const { error } = await supabase
+      .from('appointments')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      alert('Erro ao excluir agendamento: ' + error.message);
+      return;
+    }
+    setAppointments(prev => prev.filter(a => a.id !== id));
+  };
+
   const renderView = () => {
     if (loading && session) {
       return (
@@ -171,6 +201,7 @@ export default function App() {
             clients={clients}
             onAddAppointment={handleAddAppointment}
             onUpdateAppointment={handleUpdateAppointment}
+            onDeleteAppointment={handleDeleteAppointment}
           />
         );
       case 'profile':
