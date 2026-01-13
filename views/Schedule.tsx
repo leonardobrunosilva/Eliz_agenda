@@ -12,7 +12,17 @@ interface ScheduleProps {
   onDeleteAppointment: (id: string, mode?: 'single' | 'series') => void;
 }
 
-const SERVICES = ['Pé', 'Pé e Mão', 'Mão', 'Sobrancelha', 'Depilação'];
+const SERVICES = [
+  'Pé',
+  'Pé e Mão',
+  'Mão',
+  'Sobrancelha',
+  'Depilação',
+  'Escova',
+  'Progressiva',
+  'Hidratação',
+  'Pintura'
+];
 
 const Schedule: React.FC<ScheduleProps> = ({
   onBack,
